@@ -72,7 +72,7 @@ class QwenCodeCLI:
         Returns:
             QwenCodeResult: 执行结果
         """
-        # 构建命令
+        # 构建命令 (列表形式，不使用 shell，避免注入风险)
         cmd = ["qwen"]
 
         # 添加模型参数 (如果指定)
@@ -89,37 +89,51 @@ class QwenCodeCLI:
         if max_turns:
             cmd.extend(["--max-session-turns", str(max_turns)])
 
-        # 添加系统提示 (使用 --system-prompt 参数)
+        # 添加系统提示
+        # Windows CreateProcess 命令行长度限制约 32768 字符
+        # 超过阈值时使用临时文件传递，避免参数过长
         full_system = ""
         if self.agent_prompt:
             full_system += f"{self.agent_prompt}\n\n"
         if system_prompt:
             full_system += f"{system_prompt}\n\n"
 
-        if full_system.strip():
-            cmd.extend(["--system-prompt", full_system.strip()])
+        full_system = full_system.strip()
 
-        # 添加工作目录
         work_dir = Path(working_dir) if working_dir else self.project_root
 
-        # 添加 prompt (使用 positional argument，而不是 -p)
-        cmd.append(prompt)
+        # 估算命令行总长度 (参数 + 空格分隔符)
+        estimated_len = sum(len(a) for a in cmd) + len(cmd) + len(prompt) + len(full_system)
+
+        # Windows CreateProcess 限制约 32768 字符，留 2000 字符余量
+        WINDOWS_CMD_SAFE_LIMIT = 30000
+
+        temp_files_to_cleanup = []
 
         try:
-            # 执行命令
-            # Windows 需要 shell=True 和字符串命令
-            cmd_str = " ".join(cmd)
+            if estimated_len > WINDOWS_CMD_SAFE_LIMIT:
+                # 使用临时文件传递长参数，避免命令行溢出
+                temp_sys = self._create_temp_system_prompt(full_system)
+                temp_prompt = self._create_temp_prompt(prompt)
+                temp_files_to_cleanup.extend([temp_sys, temp_prompt])
+
+                cmd.extend(["--system-prompt-file", str(temp_sys)])
+                cmd.append(str(temp_prompt))
+            else:
+                if full_system:
+                    cmd.extend(["--system-prompt", full_system])
+                cmd.append(prompt)
+
+            # 直接调用可执行文件，不使用 shell (消除注入风险)
             result = subprocess.run(
-                cmd_str,
+                cmd,
                 cwd=str(work_dir),
                 capture_output=True,
                 text=True,
                 timeout=600,  # 10 分钟超时
                 encoding="utf-8",
-                shell=True  # Windows 兼容性
             )
-            
-            # 解析输出
+
             return QwenCodeResult(
                 success=result.returncode == 0,
                 output=result.stdout,
@@ -127,7 +141,7 @@ class QwenCodeCLI:
                 exit_code=result.returncode,
                 files_changed=self._detect_files_changed(work_dir)
             )
-            
+
         except subprocess.TimeoutExpired:
             return QwenCodeResult(
                 success=False,
@@ -144,6 +158,13 @@ class QwenCodeCLI:
                 exit_code=-1,
                 files_changed=[]
             )
+        finally:
+            # 清理临时文件
+            for tf in temp_files_to_cleanup:
+                try:
+                    tf.unlink(missing_ok=True)
+                except OSError:
+                    pass
     
     def _create_temp_system_prompt(self, system_prompt: str) -> Path:
         """创建临时系统提示文件"""

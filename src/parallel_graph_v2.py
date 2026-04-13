@@ -98,7 +98,7 @@ class ParallelExecutorWorkflowV2:
 
         final_state = self.workflow.invoke(initial_state)
 
-        # 清理：切换回主分支
+        # 清理：切换回主分支 + GC 缩减 .git 体积
         try:
             self.git_manager.switch_branch("main")
         except Exception:
@@ -106,6 +106,9 @@ class ParallelExecutorWorkflowV2:
                 self.git_manager.switch_branch("master")
             except Exception:
                 pass
+
+        print("\n🧹 Git GC: 清理不可达对象，缩减 .git 体积...")
+        self.git_manager.gc_prune()
 
         print("\n" + "=" * 60)
         print("  LangGraph V2 Send API 全并行工作流完成")

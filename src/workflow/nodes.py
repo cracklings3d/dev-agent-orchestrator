@@ -206,13 +206,13 @@ class WorkflowNodes:
 
     def merge_branches_node(self, state: ExecutorState) -> dict:
         """
-        合并所有 completed_indices 对应的特性分支到主分支。
+        Squash 合并所有 completed_indices 对应的特性分支到主分支。
         只合并 test_passed=True 的任务。
         """
         task_states = state.get("task_states", {})
         completed_indices = state.get("completed_indices", [])
 
-        print(f"\n[V2] 合并 {len(completed_indices)} 个已通过分支到主分支...")
+        print(f"\n[V2] Squash 合并 {len(completed_indices)} 个已通过分支到主分支...")
 
         # 确保在主分支上
         current_branch = self.git_manager.get_status().branch
@@ -228,6 +228,7 @@ class WorkflowNodes:
                     break
 
         merged_count = 0
+        deleted_count = 0
         merge_conflicts: list[dict] = []
 
         for task_idx in completed_indices:
@@ -242,18 +243,20 @@ class WorkflowNodes:
                 print(f"   跳过 {task_state.get('task_id', task_idx)}: 测试未通过")
                 continue
 
-            print(f"   合并 {branch_name} ({task_state.get('task_id', task_idx)})...")
+            print(f"   Squash 合并 {branch_name} ({task_state.get('task_id', task_idx)})...")
 
-            merge_result = self.git_manager.merge_branch(
+            merge_result = self.git_manager.squash_merge(
                 branch=branch_name,
                 into_branch=current_branch,
-                no_ff=True,
-                commit_message=f"feat({task_state.get('task_id', '')}): Merge {task_state.get('title', '')}"
+                commit_message=f"feat({task_state.get('task_id', '')}): {task_state.get('title', '')}"
             )
 
             if merge_result.success:
                 print(f"   合并成功")
                 merged_count += 1
+                # 删除已合并的分支，减少 .git 体积
+                if self.git_manager.delete_branch(branch_name):
+                    deleted_count += 1
             else:
                 if merge_result.conflicts:
                     print(f"   合并冲突: {merge_result.conflicts}")
@@ -266,10 +269,10 @@ class WorkflowNodes:
                 else:
                     print(f"   合并失败: {merge_result.message}")
 
-        print(f"\n   合并完成: {merged_count}/{len(completed_indices)} 个分支成功合并")
+        print(f"   合并了 {merged_count} 个分支，删除了 {deleted_count} 个旧分支")
 
         return {
-            "final_summary": f"成功合并 {merged_count} 个已通过分支",
+            "final_summary": f"成功 Squash 合并 {merged_count} 个分支，删除 {deleted_count} 个旧分支",
             "_merge_conflicts": merge_conflicts,
         }
 

@@ -497,6 +497,134 @@ class GitManager:
             logger.error(f"中止合并失败: {e.stderr}")
             return False
 
+    def squash_merge(
+        self,
+        branch: str,
+        into_branch: Optional[str] = None,
+        commit_message: Optional[str] = None
+    ) -> MergeResult:
+        """
+        Squash 合并分支 (线程安全)
+
+        将目标分支的所有提交压缩为一次提交，保持主干历史干净。
+
+        Args:
+            branch: 要合并的分支
+            into_branch: 合并到哪个分支（默认当前分支）
+            commit_message: 自定义提交消息
+
+        Returns:
+            MergeResult: 合并结果
+        """
+        with self._lock:
+            return self._squash_merge_unsafe(branch, into_branch, commit_message)
+
+    def _squash_merge_unsafe(
+        self,
+        branch: str,
+        into_branch: Optional[str] = None,
+        commit_message: Optional[str] = None
+    ) -> MergeResult:
+        """内部方法: squash 合并 (假设已持有锁)"""
+        try:
+            if into_branch:
+                self._switch_branch_unsafe(into_branch)
+
+            cmd = ["merge", "--squash", branch]
+            result = self._run_git(*cmd, check=False)
+
+            if result.returncode != 0:
+                # 检查是否冲突
+                status_result = self._run_git("status", "--porcelain", check=False)
+                conflicts = []
+                if "both modified" in result.stderr or "both added" in result.stderr:
+                    for line in status_result.stdout.strip().split("\n"):
+                        if line.startswith("UU") or line.startswith("AA"):
+                            conflicts.append(line[3:].strip())
+
+                return MergeResult(
+                    success=False,
+                    branch=branch,
+                    conflicts=conflicts,
+                    message="Squash 合并冲突"
+                )
+
+            # squash 合并成功，需要手动提交
+            commit_cmd = ["commit"]
+            if commit_message:
+                commit_cmd.extend(["-m", commit_message])
+
+            commit_result = self._run_git(*commit_cmd, check=False)
+
+            if commit_result.returncode != 0:
+                return MergeResult(
+                    success=False,
+                    branch=branch,
+                    conflicts=[],
+                    message=f"Squash 提交失败: {commit_result.stderr}"
+                )
+
+            commit_hash = self._run_git("rev-parse", "HEAD").stdout.strip()
+            logger.info(f"Squash 合并成功: {branch} -> {commit_hash[:8]}")
+
+            return MergeResult(
+                success=True,
+                branch=branch,
+                conflicts=[],
+                message=commit_message or f"Squash merge '{branch}'"
+            )
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Squash 合并分支失败: {e.stderr}")
+            return MergeResult(
+                success=False,
+                branch=branch,
+                conflicts=[],
+                message=str(e)
+            )
+
+    def delete_branch(self, branch_name: str, force: bool = True) -> bool:
+        """
+        删除分支 (线程安全)
+
+        Args:
+            branch_name: 要删除的分支名称
+            force: 是否强制删除（忽略未合并警告）
+
+        Returns:
+            bool: 是否成功
+        """
+        with self._lock:
+            return self._delete_branch_unsafe(branch_name, force)
+
+    def _delete_branch_unsafe(self, branch_name: str, force: bool = True) -> bool:
+        """内部方法: 删除分支 (假设已持有锁)"""
+        try:
+            flag = "-D" if force else "-d"
+            self._run_git("branch", flag, branch_name)
+            logger.info(f"删除分支: {branch_name}")
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"删除分支失败: {e.stderr}")
+            return False
+
+    def gc_prune(self) -> bool:
+        """
+        执行 Git 垃圾回收，立即清理不可达对象。
+
+        用于在所有任务完成后缩减 .git 体积。
+
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            self._run_git("gc", "--prune=now", timeout=120)
+            logger.info("Git GC 完成 (立即清理不可达对象)")
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Git GC 失败: {e.stderr}")
+            return False
+
     def create_feature_branch(self, task_id: str) -> Optional[str]:
         """
         为任务创建特性分支

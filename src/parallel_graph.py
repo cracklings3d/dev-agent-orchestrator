@@ -494,11 +494,11 @@ class ParallelExecutorWorkflow:
         }
 
     def merge_branches_node(self, state: ExecutorState) -> dict:
-        """合并所有成功的特性分支到主分支"""
+        """合并所有成功的特性分支到主分支 (Squash 模式)"""
         task_states = state.get("task_states", {})
         completed_tasks = state.get("completed_tasks", [])
 
-        print(f"\n🔀 合并 {len(completed_tasks)} 个分支到主分支...")
+        print(f"\n🔀 Squash 合并 {len(completed_tasks)} 个分支到主分支...")
 
         main_branch = self.git_manager.get_status().branch
         if main_branch.startswith("feature/"):
@@ -522,17 +522,16 @@ class ParallelExecutorWorkflow:
             if not branch_name:
                 continue
 
-            print(f"  🔀 合并 {branch_name}...")
+            print(f"  🔀 Squash 合并 {branch_name}...")
 
-            merge_result = self.git_manager.merge_branch(
+            merge_result = self.git_manager.squash_merge(
                 branch=branch_name,
                 into_branch=main_branch,
-                no_ff=True,
-                commit_message=f"feat({task_state['task_id']}): Merge {task_state['title']}"
+                commit_message=f"feat({task_state['task_id']}): {task_state['title']}"
             )
 
             if merge_result.success:
-                print(f"  ✅ 合并成功")
+                print(f"  ✅ Squash 合并成功")
                 merged_successfully.append(task_idx)
             else:
                 if merge_result.conflicts:
@@ -546,8 +545,18 @@ class ParallelExecutorWorkflow:
                 else:
                     print(f"  ❌ 合并失败: {merge_result.message}")
 
+        # 删除已合并的分支，减少 .git 体积
+        deleted_count = 0
+        for task_idx in merged_successfully:
+            task_state = task_states[task_idx]
+            branch_name = task_state.get("branch_name", "")
+            if branch_name and self.git_manager.delete_branch(branch_name):
+                deleted_count += 1
+
+        print(f"   删除了 {deleted_count} 个已合并的分支")
+
         return {
-            "final_summary": f"成功合并 {len(merged_successfully)} 个分支",
+            "final_summary": f"成功 Squash 合并 {len(merged_successfully)} 个分支，删除 {deleted_count} 个旧分支",
             "_merge_conflicts": merge_conflicts
         }
 
@@ -687,7 +696,7 @@ class ParallelExecutorWorkflow:
 
         final_state = self.workflow.invoke(initial_state)
 
-        # 清理：切换回主分支
+        # 清理：切换回主分支 + GC 缩减 .git 体积
         try:
             self.git_manager.switch_branch("main")
         except:
@@ -695,5 +704,8 @@ class ParallelExecutorWorkflow:
                 self.git_manager.switch_branch("master")
             except:
                 pass
+
+        print("\n🧹 Git GC: 清理不可达对象，缩减 .git 体积...")
+        self.git_manager.gc_prune()
 
         return final_state
