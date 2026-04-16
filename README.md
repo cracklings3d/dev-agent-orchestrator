@@ -1,119 +1,124 @@
-# LangGraph Orchestrator
+# Orchestrator
 
-AI Agent 编排系统 — **完全由 LangGraph 状态机驱动**。
+A multi-agent system that breaks software tasks into focused roles, each doing one job well.
 
-## 核心约束 (Hard Constraints)
+Instead of one AI assistant trying to do everything, Orchestrator sends your task through a disciplined loop:
 
-| 约束 | 描述 | 状态 |
-|------|------|------|
-| HC-1 | LangGraph 状态机驱动 | ✅ |
-| HC-2 | 单向隔离的信息流动 | ✅ |
-| HC-3 | Markdown 文件驱动 | ✅ |
-| HC-4 | Tester 完备性测试 | ✅ |
-| HC-5 | 时间戳归档 | ✅ |
-| HC-6 | 模式化架构，预留扩展 | ✅ |
+```
+Architect → Developer → Tester → Reviewer → Controller → Done or Rework
+```
 
-## 安装
+Each role receives only the context it needs, nothing more. Humans are only pulled in when real information is missing.
+
+## Why This Exists
+
+A single general-purpose agent tends to drift, over-reach, or lose track of what it was asked to do. Orchestrator avoids that by giving each step to a specialist:
+
+| Role | Job |
+|------|-----|
+| **Architect** | Clarify what needs to happen, shape it into a scoped task |
+| **Developer** | Implement exactly what was asked, nothing extra |
+| **Tester** | Validate the work against acceptance criteria |
+| **Reviewer** | Judge code quality and maintainability |
+| **Controller** | Route to the right next step, or escalate if stuck |
+
+The system's top priority is **code quality**. The main constraint is **bounded context** — each role gets the minimum information necessary to make a good decision.
+
+## Supported Platforms
+
+Orchestrator can install its workflow prompts into five AI coding platforms:
+
+| Platform | Output Location |
+|----------|----------------|
+| GitHub Copilot (VS Code) | `.github/` |
+| Open Code | `.opencode/` |
+| Claude Code | `.claude/` |
+| Qwen Code | `.qwen/` |
+| GLM | `.glm/` |
+
+## Quick Start
+
+### Install into a target repository
 
 ```bash
-cd orchestrator
-pip install -r requirements.txt
-pip install -e .
+# Interactive — the installer will ask you what you need
+python install.py
+
+# Non-interactive, all platforms
+python install.py /path/to/target-repo
+
+# Non-interactive, specific platforms
+python install.py /path/to/target-repo -p copilot-vscode -p opencode
 ```
 
-## 使用
+Each platform gets its own quickstart guide and a manifest of installed files.
 
-### 前提
+Global install (user-level config) is available for Open Code and can be selected interactively.
 
-确保 `.qwen/tasks/` 目录下存在 `TASK-*.md` 任务文件（由 Architect Agent 生成或手动创建）。
+### Give it a task
 
-### 执行任务
-
-```bash
-# 执行所有任务
-orchestrator run
-
-# 指定并行度
-orchestrator run --parallel-limit 5
-
-# 指定不同 Agent 的模型
-orchestrator run --developer-model qwen-coder --tester-model qwen-plus
-```
-
-### 查看历史与配置
-
-```bash
-orchestrator status   # 查看归档历史
-orchestrator info     # 查看配置信息
-```
-
-## 工作流 (LangGraph 状态机)
+Once installed, invoke the workflow runner in your chosen platform and describe what you want:
 
 ```
-load_tasks → archive_start → execute_tasks (fan-out)
-                                  ↓
-                               test_task (fan-in)
-                                  ↓
-                             rework_task? → execute_tasks (重试)
-                                  ↓
-                             merge_branches → summarize → archive_finalize → END
+Run this task through the bounded-context workflow.
+
+Objective:
+- what should change
+
+Known constraints:
+- any hard limits
+
+Acceptance criteria:
+- how you know it's done
 ```
 
-### 节点说明
+The runner will coordinate the roles for you.
 
-| 节点 | 职责 |
-|------|------|
-| `load_tasks` | 从 `.qwen/tasks/` 读取所有 `TASK-*.md`，整文件传递 |
-| `archive_start` | 创建时间戳归档目录，移动待执行任务到 `unfinished/` |
-| `execute_tasks` | 为每个活跃任务: 创建 feature 分支 → Developer Agent 实现 → Git 提交 |
-| `test_task` | Tester Agent 完备性验证 + 运行测试命令 |
-| `rework_task` | 测试失败 → 回滚提交 → 标记返工 (最多 3 次) |
-| `merge_branches` | 合并所有成功的 feature 分支到主分支 |
-| `summarize` | 生成执行总结报告 |
-| `archive_finalize` | 按成功/失败分类归档任务文件 |
+## How The Handoff Works
 
-## 目录结构
+Roles communicate through structured task packets rather than free-form conversation. This keeps context compact and the workflow deterministic:
 
-```
-orchestrator/
-├── main.py                         # CLI 入口 (唯一入口)
-├── requirements.txt                # 依赖
-├── pytest.ini                      # 测试配置
-│
-├── 📚 设计文档
-│   ├── CORE_REQUIREMENTS.md        # 核心硬约束 (HC-1 ~ HC-6)
-│   └── ARCHITECT_TASK_SPEC.md      # Architect 任务拆解规范
-│
-├── src/
-│   ├── parallel_graph.py           # LangGraph 状态机 (唯一工作流)
-│   ├── git_manager.py              # Git 操作
-│   ├── qwen_code_adapter.py        # Qwen Code CLI 适配器
-│   ├── task_archiver.py            # HC-5 时间戳归档
-│   └── agents/                     # Agent 定义
-│       ├── base_agent.py           # Agent 基类 + AgentContext
-│       └── agent_types.py          # Architect / Developer / Tester
-│
-└── tests/                          # 测试套件
-    ├── test_agents.py
-    ├── test_git_manager.py
-    └── test_parallel_workflow.py
-```
+- **Architect** produces a task packet → **Developer** implements it
+- **Developer** produces an implementation report → **Tester** validates it
+- **Tester** produces a pass/fail report → **Reviewer** reviews it
+- **Reviewer** approves or sends it back for rework
+- **Controller** decides the next step at every junction
 
-## 架构原则
+For the exact packet format, see [TASK_PACKET_CONTRACT.md](TASK_PACKET_CONTRACT.md).
+For the routing rules, see [ROUTING_AND_ESCALATION_POLICY.md](ROUTING_AND_ESCALATION_POLICY.md).
+For worked examples, see [CONTROLLER_WORKED_EXAMPLES.md](CONTROLLER_WORKED_EXAMPLES.md).
 
-1. **LangGraph 是唯一驱动引擎** — 不存在 ThreadPoolExecutor、WorkerManager 等其他调度路径
-2. **文件驱动** — 所有任务上下文存储在 `.qwen/tasks/TASK-*.md`，整文件传递
-3. **分支隔离** — 每个任务在独立 feature 分支上开发
-4. **AI 验证** — Tester Agent 进行代码审查 + 测试命令验证
-5. **返工循环** — 测试失败自动返工，最多 3 次
-6. **时间戳归档** — 每次执行独立归档，便于追溯
+## Shared Skills
 
-## 测试
+Three cross-role skills are embedded into the agents:
+
+1. **Grill Me Relentlessly** — aggressive clarification before work begins
+2. **Bounded Context Packets** — disciplined task shaping and handoff
+3. **Code Quality Principles** — maintainability awareness across all roles
+
+## Current Status
+
+The workflow contracts, role prompts, shared skills, and multi-platform installer are all functional. The system has been validated through worked examples and automated tests.
+
+What's still in progress:
+
+- Live validation against real tasks in production repositories
+- A broader example library across all role flows
+- Mechanical enforcement of packet structure (currently prompt-based)
+
+For technical details, see:
+- [ACTIVE_DIRECTION.md](ACTIVE_DIRECTION.md) — current priorities
+- [MULTI_AGENT_PROMPT_ARCHITECTURE.md](MULTI_AGENT_PROMPT_ARCHITECTURE.md) — role and skill model
+- [PROMPTS_AND_INSTRUCTIONS_STATUS.md](PROMPTS_AND_INSTRUCTIONS_STATUS.md) — prompt surface status
+- [DEVELOPMENT_PLAN_BoundedContextMultiAgent.prompt.md](DEVELOPMENT_PLAN_BoundedContextMultiAgent.prompt.md) — implementation roadmap
+- [CHECKPOINT_2026-04-16.md](CHECKPOINT_2026-04-16.md) — latest checkpoint
+
+## Testing
 
 ```bash
 pytest tests/ -v
 ```
 
-## 许可证
+## License
 
-内部项目
+Internal project
