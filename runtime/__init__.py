@@ -5,20 +5,20 @@ Architect -> Developer -> Tester -> Reviewer -> Complete loop
 with deterministic routing and persistent task state.
 """
 
-from .packets import Packet, PacketParseError, parse_packet, build_rework_packet, load_agent_prompt
-from .router import Router, RouteDecision
+from .agent import AgentError, AgentFn
 from .ledger import TaskLedger, TaskRecord
-from .agent import AgentFn, AgentError
 from .models import (
     DifficultyLevel,
-    ModelProfile,
-    ModelPool,
-    ModelSelector,
     ModelAssignment,
+    ModelPool,
+    ModelProfile,
+    ModelSelector,
     PeakHoursConfig,
     ROLE_MODEL_WEIGHTS,
 )
-from .runner import WorkflowRunner, WorkflowConfig
+from .packets import Packet, PacketParseError, build_rework_packet, load_agent_prompt, parse_packet
+from .router import RouteDecision, Router
+from .runner import WorkflowConfig, WorkflowRunner
 
 __all__ = [
     "Packet",

@@ -14,6 +14,7 @@ The other platforms receive deterministic local bundles and quickstarts that can
 used for live validation even where native orchestration features differ.
 """
 
+# ruff: noqa: I001
 from __future__ import annotations
 
 import json
