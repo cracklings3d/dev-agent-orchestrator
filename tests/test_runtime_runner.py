@@ -4,7 +4,25 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from runtime.ledger import TaskLedger, PHASE_COMPLETE, PHASE_BLOCKED, PHASE_FAILED
+from runtime.models import (
+    DifficultyLevel,
+    ModelPool,
+    ModelProfile,
+    ModelSelector,
+)
 from runtime.runner import WorkflowRunner, WorkflowConfig
+
+
+GLM_51 = ModelProfile(name="glm-5.1", provider="zhipu", reasoning=9.5, coding=9.0, speed=3.0, cost=1.1, rate_limit_risk=1.0)
+GLM_5 = ModelProfile(name="glm-5", provider="zhipu", reasoning=9.0, coding=8.5, speed=4.0, cost=2.0, rate_limit_risk=0.7)
+GLM_47 = ModelProfile(name="glm-4.7", provider="zhipu", reasoning=8.0, coding=8.5, speed=5.0, cost=5.0, rate_limit_risk=0.3)
+GLM_5T = ModelProfile(name="glm-5-turbo", provider="zhipu", reasoning=7.5, coding=7.0, speed=8.0, cost=6.0, rate_limit_risk=0.1)
+GLM_47F = ModelProfile(name="glm-4.7-flash", provider="zhipu", reasoning=5.5, coding=5.5, speed=9.5, cost=10.0, rate_limit_risk=0.0)
+
+TEST_POOL = ModelPool.from_profiles(
+    [GLM_51, GLM_5, GLM_47, GLM_5T, GLM_47F],
+    {"architect": "glm-5.1", "developer": "glm-4.7", "tester": "glm-5-turbo", "reviewer": "glm-4.7", "controller": "glm-5-turbo"},
+)
 
 
 ARCHITECT_OUTPUT = """## Packet
@@ -166,9 +184,11 @@ Cannot resolve UX
 
 def _make_agent_fn(responses: dict[str, list[str]]) -> callable:
     call_log: list[tuple[str, str]] = []
+    model_log: list[tuple[str, str | None]] = []
 
-    def agent_fn(role: str, context: str) -> str:
+    def agent_fn(role: str, context: str, *, model_assignment=None) -> str:
         call_log.append((role, context))
+        model_log.append((role, model_assignment.model if model_assignment else None))
         role_calls = [r for c, r in call_log if c == role]
         idx = len(role_calls) - 1
         available = responses.get(role, [])
@@ -177,6 +197,7 @@ def _make_agent_fn(responses: dict[str, list[str]]) -> callable:
         return available[-1] if available else ""
 
     agent_fn.call_log = call_log
+    agent_fn.model_log = model_log
     return agent_fn
 
 
@@ -303,7 +324,7 @@ Cannot validate
 
 class TestRunnerAgentError:
     def test_empty_agent_output_fails_task(self, tmp_path):
-        def agent_fn(role, context):
+        def agent_fn(role, context, *, model_assignment=None):
             return ""
 
         ledger = TaskLedger(tmp_path / "tasks")
@@ -313,7 +334,7 @@ class TestRunnerAgentError:
         assert record.terminal_state == PHASE_FAILED
 
     def test_unparseable_output_fails_task(self, tmp_path):
-        def agent_fn(role, context):
+        def agent_fn(role, context, *, model_assignment=None):
             return "This is not a valid packet at all\nno headers no nothing"
 
         ledger = TaskLedger(tmp_path / "tasks")
@@ -321,3 +342,120 @@ class TestRunnerAgentError:
         record = runner.run("Test unparseable")
 
         assert record.terminal_state == PHASE_FAILED
+
+
+class TestRunnerModelSelection:
+    def test_model_selector_assigns_models(self, tmp_path):
+        selector = ModelSelector(TEST_POOL)
+        agent_fn = _make_agent_fn({
+            "architect": [ARCHITECT_OUTPUT],
+            "developer": [DEVELOPER_OUTPUT],
+            "tester": [TESTER_PASS_OUTPUT],
+            "reviewer": [REVIEWER_APPROVE_OUTPUT],
+        })
+        ledger = TaskLedger(tmp_path / "tasks")
+        config = WorkflowConfig(model_selector=selector, initial_difficulty=DifficultyLevel.COMPLEX)
+        runner = WorkflowRunner(agent_fn, ledger, config=config)
+        record = runner.run("Test model selection")
+
+        assert record.terminal_state == PHASE_COMPLETE
+        assert len(agent_fn.model_log) == 4
+        assert agent_fn.model_log[0] == ("architect", "glm-5.1")
+        assert agent_fn.model_log[1] == ("developer", "glm-4.7")
+
+    def test_no_model_selector_passes_none(self, tmp_path):
+        agent_fn = _make_agent_fn({
+            "architect": [ARCHITECT_OUTPUT],
+            "developer": [DEVELOPER_OUTPUT],
+            "tester": [TESTER_PASS_OUTPUT],
+            "reviewer": [REVIEWER_APPROVE_OUTPUT],
+        })
+        ledger = TaskLedger(tmp_path / "tasks")
+        runner = WorkflowRunner(agent_fn, ledger)
+        runner.run("No model selector")
+
+        for role, model in agent_fn.model_log:
+            assert model is None
+
+    def test_retry_escalates_model(self, tmp_path):
+        selector = ModelSelector(TEST_POOL)
+        agent_fn = _make_agent_fn({
+            "architect": [ARCHITECT_OUTPUT],
+            "developer": [DEVELOPER_OUTPUT, DEVELOPER_OUTPUT],
+            "tester": [TESTER_FAIL_OUTPUT, TESTER_PASS_OUTPUT],
+            "reviewer": [REVIEWER_APPROVE_OUTPUT],
+        })
+        ledger = TaskLedger(tmp_path / "tasks")
+        config = WorkflowConfig(model_selector=selector, initial_difficulty=DifficultyLevel.SIMPLE, max_retries=3)
+        runner = WorkflowRunner(agent_fn, ledger, config=config)
+        record = runner.run("Test model escalation")
+
+        assert record.terminal_state == PHASE_COMPLETE
+        assert record.retry_count == 1
+        first_dev_model = agent_fn.model_log[1][1]
+        retry_dev_model = agent_fn.model_log[4][1]
+        assert retry_dev_model is not None
+        assert first_dev_model is not None
+
+    def test_difficulty_persisted_in_ledger(self, tmp_path):
+        selector = ModelSelector(TEST_POOL)
+        agent_fn = _make_agent_fn({
+            "architect": [ARCHITECT_OUTPUT],
+            "developer": [DEVELOPER_OUTPUT],
+            "tester": [TESTER_PASS_OUTPUT],
+            "reviewer": [REVIEWER_APPROVE_OUTPUT],
+        })
+        ledger = TaskLedger(tmp_path / "tasks")
+        config = WorkflowConfig(model_selector=selector, initial_difficulty=DifficultyLevel.COMPLEX)
+        runner = WorkflowRunner(agent_fn, ledger, config=config)
+        record = runner.run("Test difficulty persist")
+
+        assert record.difficulty == 4
+
+    def test_packet_difficulty_overrides_initial(self, tmp_path):
+        architect_diff4 = ARCHITECT_OUTPUT.replace("- blocker_status: none", "- blocker_status: none\n- difficulty: 5")
+        selector = ModelSelector(TEST_POOL)
+        agent_fn = _make_agent_fn({
+            "architect": [architect_diff4],
+            "developer": [DEVELOPER_OUTPUT],
+            "tester": [TESTER_PASS_OUTPUT],
+            "reviewer": [REVIEWER_APPROVE_OUTPUT],
+        })
+        ledger = TaskLedger(tmp_path / "tasks")
+        config = WorkflowConfig(model_selector=selector, initial_difficulty=DifficultyLevel.SIMPLE)
+        runner = WorkflowRunner(agent_fn, ledger, config=config)
+        record = runner.run("Test packet difficulty override")
+
+        assert record.difficulty == 5
+
+    def test_reshape_uses_complex_model(self, tmp_path):
+        blocked_tester = """## Report
+- packet_type: tester_validation_report
+- source_role: Tester
+- target_role: Architect
+- blocker_status: role-blocked
+
+## Task Summary
+Cannot validate
+
+## Overall Status
+- blocked
+
+## Failure Findings
+- criteria too vague
+"""
+        selector = ModelSelector(TEST_POOL)
+        agent_fn = _make_agent_fn({
+            "architect": [ARCHITECT_OUTPUT, ARCHITECT_OUTPUT],
+            "developer": [DEVELOPER_OUTPUT, DEVELOPER_OUTPUT],
+            "tester": [blocked_tester, TESTER_PASS_OUTPUT],
+            "reviewer": [REVIEWER_APPROVE_OUTPUT],
+        })
+        ledger = TaskLedger(tmp_path / "tasks")
+        config = WorkflowConfig(model_selector=selector, initial_difficulty=DifficultyLevel.MODERATE)
+        runner = WorkflowRunner(agent_fn, ledger, config=config)
+        record = runner.run("Test reshape model")
+
+        assert record.terminal_state == PHASE_COMPLETE
+        reshape_model = agent_fn.model_log[3][1]
+        assert reshape_model is not None

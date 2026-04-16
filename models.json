@@ -1,0 +1,67 @@
+{
+  "models": [
+    {
+      "name": "glm-5.1",
+      "provider": "zhipu",
+      "reasoning": 9.5,
+      "coding": 9.0,
+      "speed": 3.0,
+      "cost": 1.1,
+      "api_key_env": "MODEL_KEY_GLM51",
+      "rate_limit_risk": 1.0
+    },
+    {
+      "name": "glm-5",
+      "provider": "zhipu",
+      "reasoning": 9.0,
+      "coding": 8.5,
+      "speed": 4.0,
+      "cost": 2.0,
+      "api_key_env": "MODEL_KEY_GLM5",
+      "rate_limit_risk": 0.7
+    },
+    {
+      "name": "glm-4.7",
+      "provider": "zhipu",
+      "reasoning": 8.0,
+      "coding": 8.5,
+      "speed": 5.0,
+      "cost": 5.0,
+      "api_key_env": "MODEL_KEY_GLM47",
+      "rate_limit_risk": 0.3
+    },
+    {
+      "name": "glm-5-turbo",
+      "provider": "zhipu",
+      "reasoning": 7.5,
+      "coding": 7.0,
+      "speed": 8.0,
+      "cost": 6.0,
+      "api_key_env": "MODEL_KEY_GLM5T",
+      "rate_limit_risk": 0.1
+    },
+    {
+      "name": "glm-4.7-flash",
+      "provider": "zhipu",
+      "reasoning": 5.5,
+      "coding": 5.5,
+      "speed": 9.5,
+      "cost": 10.0,
+      "api_key_env": "MODEL_KEY_GLM47F",
+      "rate_limit_risk": 0.0
+    }
+  ],
+  "role_defaults": {
+    "architect": "glm-5.1",
+    "developer": "glm-4.7",
+    "tester": "glm-5-turbo",
+    "reviewer": "glm-4.7",
+    "controller": "glm-5-turbo"
+  },
+  "peak_hours": {
+    "start_hour": 14,
+    "end_hour": 18,
+    "utc_offset_hours": 8,
+    "peak_penalty": 2.0
+  }
+}

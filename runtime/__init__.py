@@ -9,6 +9,15 @@ from .packets import Packet, PacketParseError, parse_packet, build_rework_packet
 from .router import Router, RouteDecision
 from .ledger import TaskLedger, TaskRecord
 from .agent import AgentFn, AgentError
+from .models import (
+    DifficultyLevel,
+    ModelProfile,
+    ModelPool,
+    ModelSelector,
+    ModelAssignment,
+    PeakHoursConfig,
+    ROLE_MODEL_WEIGHTS,
+)
 from .runner import WorkflowRunner, WorkflowConfig
 
 __all__ = [
@@ -23,6 +32,13 @@ __all__ = [
     "TaskRecord",
     "AgentFn",
     "AgentError",
+    "DifficultyLevel",
+    "ModelProfile",
+    "ModelPool",
+    "ModelSelector",
+    "ModelAssignment",
+    "PeakHoursConfig",
+    "ROLE_MODEL_WEIGHTS",
     "WorkflowRunner",
     "WorkflowConfig",
 ]

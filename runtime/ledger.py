@@ -29,6 +29,7 @@ class TaskRecord:
     phase: str = PHASE_PENDING
     packet_count: int = 0
     retry_count: int = 0
+    difficulty: int = 3
     terminal_state: str | None = None
     terminal_reason: str = ""
     created_at: str = ""
@@ -103,6 +104,14 @@ class TaskLedger:
         self._write_meta(record)
         return record.retry_count
 
+    def update_difficulty(self, task_id: str, difficulty: int) -> None:
+        record = self.get_task(task_id)
+        if record is None:
+            raise ValueError(f"Task {task_id} not found")
+        record.difficulty = max(1, min(5, difficulty))
+        record.updated_at = _now()
+        self._write_meta(record)
+
     def set_complete(self, task_id: str) -> None:
         self._set_terminal(task_id, PHASE_COMPLETE, "Task completed successfully")
 
@@ -140,6 +149,7 @@ class TaskLedger:
             "phase": record.phase,
             "packet_count": record.packet_count,
             "retry_count": record.retry_count,
+            "difficulty": record.difficulty,
             "terminal_state": record.terminal_state,
             "terminal_reason": record.terminal_reason,
             "created_at": record.created_at,
@@ -155,6 +165,7 @@ class TaskLedger:
             phase=data.get("phase", PHASE_PENDING),
             packet_count=data.get("packet_count", 0),
             retry_count=data.get("retry_count", 0),
+            difficulty=data.get("difficulty", 3),
             terminal_state=data.get("terminal_state"),
             terminal_reason=data.get("terminal_reason", ""),
             created_at=data.get("created_at", ""),

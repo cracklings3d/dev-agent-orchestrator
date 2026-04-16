@@ -91,6 +91,7 @@ class Packet:
     known_risks: tuple[str, ...] = ()
     findings: tuple[str, ...] = ()
     scope_drift_concerns: tuple[str, ...] = ()
+    difficulty: int = 0
 
 
 def parse_packet(markdown: str) -> Packet:
@@ -113,6 +114,12 @@ def parse_packet(markdown: str) -> Packet:
     if not packet_type:
         raise PacketParseError(f"Missing packet_type in {header_key} section", md)
 
+    difficulty_raw = fields.get("difficulty", "0").strip()
+    try:
+        difficulty_val = int(difficulty_raw)
+    except ValueError:
+        difficulty_val = 0
+
     return Packet(
         raw=md,
         packet_type=packet_type,
@@ -134,6 +141,7 @@ def parse_packet(markdown: str) -> Packet:
         known_risks=_items(secs.get("Known Risks", "")),
         findings=_items(secs.get("Findings Ordered By Severity", secs.get("Failure Findings", ""))),
         scope_drift_concerns=_items(secs.get("Scope Drift Concerns", "")),
+        difficulty=difficulty_val,
     )
 
 
@@ -145,13 +153,15 @@ def build_rework_packet(
     in_scope: tuple[str, ...],
     out_of_scope: tuple[str, ...],
     required_references: tuple[str, ...] = (),
+    difficulty: int = 0,
 ) -> Packet:
+    difficulty_line = f"\n- difficulty: {difficulty}" if difficulty else ""
     md = (
         f"## Packet\n"
         f"- packet_type: rework_packet\n"
         f"- source_role: {source_role}\n"
         f"- target_role: Developer\n"
-        f"- blocker_status: none\n\n"
+        f"- blocker_status: none{difficulty_line}\n\n"
         f"## Task Summary\n{task_summary}\n\n"
         f"## Required Outcome\n{_format_items(required_outcome)}\n\n"
         f"## Rework Context\n{_format_items(*rework_context)}\n\n"
@@ -170,6 +180,7 @@ def build_rework_packet(
         rework_context=rework_context,
         in_scope=in_scope,
         out_of_scope=out_of_scope,
+        difficulty=difficulty,
     )
 
 
