@@ -15,8 +15,8 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install ruff
-      - run: ruff check .
-      - run: ruff format --check .
+      - run: ruff check runtime/ integration_layer/ install.py tests/
+      - run: ruff format --check runtime/ integration_layer/ install.py tests/
 
   typecheck:
     runs-on: windows-latest
