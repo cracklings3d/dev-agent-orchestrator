@@ -1,9 +1,9 @@
-from pathlib import Path
 import json
 import sys
+from pathlib import Path
 
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
 
 def test_install_all_platform_bundles(tmp_path):

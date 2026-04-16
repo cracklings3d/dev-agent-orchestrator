@@ -36,5 +36,5 @@ pyrightconfig.json
 
 # Qwen internal
 .qwen/
-skills/
-agents/
+/skills/
+/agents/

@@ -1,9 +1,9 @@
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
-from runtime.ledger import TaskLedger, PHASE_COMPLETE, PHASE_BLOCKED, PHASE_FAILED
+from runtime.ledger import PHASE_BLOCKED, PHASE_COMPLETE, PHASE_FAILED, TaskLedger
 from runtime.models import (
     DifficultyLevel,
     ModelPool,

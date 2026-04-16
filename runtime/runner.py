@@ -16,10 +16,7 @@ from pathlib import Path
 from .agent import AgentFn, AgentError, invoke_agent
 from .ledger import (
     PHASE_ARCHITECT,
-    PHASE_BLOCKED,
-    PHASE_COMPLETE,
     PHASE_DEVELOPER,
-    PHASE_FAILED,
     PHASE_REVIEWER,
     PHASE_TESTER,
     TaskLedger,
@@ -157,7 +154,10 @@ class WorkflowRunner:
                         self._ledger.increment_retry(record.task_id)
                         current_difficulty = self._bump_difficulty(current_difficulty)
                         self._ledger.update_difficulty(record.task_id, int(current_difficulty))
-                        rework = reviewer_decision.packet or self._router._build_rework_from_reviewer(reviewer_report, original_packet)
+                        rework = (
+                            reviewer_decision.packet
+                            or self._router._build_rework_from_reviewer(reviewer_report, original_packet)
+                        )
                         self._ledger.add_packet(record.task_id, rework.raw, "rework")
                         current_packet = rework
                         continue
@@ -182,7 +182,10 @@ class WorkflowRunner:
                     self._ledger.increment_retry(record.task_id)
                     current_difficulty = self._bump_difficulty(current_difficulty)
                     self._ledger.update_difficulty(record.task_id, int(current_difficulty))
-                    rework = tester_decision.packet or self._router._build_rework_from_tester(tester_report, original_packet)
+                    rework = (
+                        tester_decision.packet
+                        or self._router._build_rework_from_tester(tester_report, original_packet)
+                    )
                     self._ledger.add_packet(record.task_id, rework.raw, "rework")
                     current_packet = rework
                     continue
@@ -235,7 +238,13 @@ class WorkflowRunner:
         model = self._select_model(ROLE_TESTER, difficulty)
         return self._invoke(ROLE_TESTER, context, record, "tester", model)
 
-    def _run_reviewer(self, record: TaskRecord, dev_report: Packet, tester_report: Packet, difficulty: DifficultyLevel) -> Packet | None:
+    def _run_reviewer(
+        self,
+        record: TaskRecord,
+        dev_report: Packet,
+        tester_report: Packet,
+        difficulty: DifficultyLevel,
+    ) -> Packet | None:
         self._ledger.update_phase(record.task_id, PHASE_REVIEWER)
         context = f"{dev_report.raw}\n\n---\n\nTester validation result:\n\n{tester_report.raw}"
         model = self._select_model(ROLE_REVIEWER, difficulty)
@@ -243,7 +252,12 @@ class WorkflowRunner:
 
     def _run_reshape(self, record: TaskRecord, decision: RouteDecision, original: Packet) -> Packet | None:
         self._ledger.update_phase(record.task_id, PHASE_ARCHITECT)
-        context = f"Reshape this task based on downstream feedback.\n\nOriginal task:\n{original.raw}\n\nReshaping trigger:\n{decision.packet.raw if decision.packet else 'No upstream packet provided'}"
+        upstream = decision.packet.raw if decision.packet else "No upstream packet provided"
+        context = (
+            f"Reshape this task based on downstream feedback.\n\n"
+            f"Original task:\n{original.raw}\n\n"
+            f"Reshaping trigger:\n{upstream}"
+        )
         model = self._select_model(ROLE_ARCHITECT, DifficultyLevel.COMPLEX)
         return self._invoke(ROLE_ARCHITECT, context, record, "architect_reshape", model)
 

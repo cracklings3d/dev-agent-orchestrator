@@ -9,14 +9,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from integration_layer.installer import (
+from integration_layer.installer import (  # noqa: E402
     PLATFORM_DISPLAY_NAMES,
     PLATFORM_GLOBAL_ROOTS,
     SUPPORTED_PLATFORMS,

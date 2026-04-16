@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import json
 import os
 import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
 from runtime.models import (
     DifficultyLevel,

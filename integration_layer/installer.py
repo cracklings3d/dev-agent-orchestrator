@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import shutil
-from typing import Iterable
+from typing import Iterable, Sequence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -257,7 +257,8 @@ If you want stricter role separation, invoke the role prompts individually in th
 
 ## Important Note
 
-This bundle assumes Qwen Code can consume plain markdown prompts reliably, but it does not assume native workspace-level subagent orchestration.
+This bundle assumes Qwen Code can consume plain markdown prompts reliably,
+but it does not assume native workspace-level subagent orchestration.
 """
 
 
@@ -280,7 +281,9 @@ If you want stricter manual role separation, use the role prompts individually.
 
 ## Important Note
 
-This bundle is pragmatic. It gives Claude Code a deterministic local asset layout even if your current Claude environment does not natively mirror GitHub Copilot's custom-agent behavior.
+This bundle is pragmatic. It gives Claude Code a deterministic local asset layout
+even if your current Claude environment does not natively mirror GitHub Copilot's
+custom-agent behavior.
 """
 
 
@@ -302,7 +305,9 @@ Use them as character or system prompt definitions when calling GLM tooling.
 
 ## Important Note
 
-This bundle provides deterministic rendered assets for GLM, but not a native orchestration runtime. It is meant for platform adaptation and live prompt testing.
+This bundle provides deterministic rendered assets for GLM,
+but not a native orchestration runtime. It is meant for platform adaptation
+and live prompt testing.
 """
 
 
@@ -362,7 +367,7 @@ The workflow runner will delegate to the Architect, Developer, Tester, Reviewer,
 """
 
 
-def _manifest_text(platforms: list[str], installed_paths: list[Path], target_root: Path) -> str:
+def _manifest_text(platforms: Sequence[str], installed_paths: list[Path], target_root: Path) -> str:
     relative_paths = [path.relative_to(target_root).as_posix() for path in installed_paths]
     manifest = {
         "integration_layer": "bounded-context-multi-agent",

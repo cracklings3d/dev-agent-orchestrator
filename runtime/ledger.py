@@ -57,7 +57,8 @@ class TaskLedger:
     def create_task(self, description: str, task_id: str | None = None) -> TaskRecord:
         if task_id is None:
             existing = list(self._workdir.glob("TASK-*")) if self._workdir.exists() else []
-            next_num = max((int(p.name.split("-")[1]) for p in existing if p.name.split("-")[1].isdigit()), default=0) + 1
+            nums = (int(p.name.split("-")[1]) for p in existing if p.name.split("-")[1].isdigit())
+            next_num = max(nums, default=0) + 1
             task_id = f"TASK-{next_num:03d}"
 
         record = TaskRecord(task_id=task_id, description=description)
