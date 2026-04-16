@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
-from runtime.packets import Packet, PacketParseError, build_rework_packet, parse_packet
+from runtime.packets import PacketParseError, build_rework_packet, parse_packet
 
 
 ARCHITECT_PACKET_MD = """## Packet

@@ -1,5 +1,4 @@
 import json
-import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,7 +14,6 @@ from runtime.models import (
     ModelProfile,
     ModelSelector,
     PeakHoursConfig,
-    ROLE_MODEL_WEIGHTS,
     _adjust_weights,
 )
 

@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
-from runtime.ledger import PHASE_BLOCKED, PHASE_COMPLETE, PHASE_FAILED, TaskLedger, TaskRecord
+from runtime.ledger import PHASE_BLOCKED, PHASE_COMPLETE, PHASE_FAILED, TaskLedger
 
 
 class TestTaskLedgerCreate:

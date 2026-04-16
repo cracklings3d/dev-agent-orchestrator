@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from .models import ModelAssignment
-from .packets import Packet, PacketParseError, parse_packet
+from .packets import Packet, parse_packet
 
 
 class AgentFn(Protocol):

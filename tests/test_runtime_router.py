@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
-from runtime.packets import Packet, parse_packet
+from runtime.packets import Packet
 from runtime.router import (
     ACTION_COMPLETE,
     ACTION_ESCALATE,
