@@ -16,10 +16,10 @@ used for live validation even where native orchestration features differ.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import shutil
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Sequence
 
 
@@ -326,7 +326,8 @@ def _opencode_skill_text(asset: MarkdownAsset) -> str:
 def _opencode_quickstart() -> str:
     return """# Open Code Multi-Agent Quickstart
 
-This repository has been prepared with an Open Code (opencode) integration bundle for the bounded-context multi-agent workflow.
+This repository has been prepared with an Open Code (opencode)
+integration bundle for the bounded-context multi-agent workflow.
 
 ## Installed Layout
 
@@ -352,7 +353,8 @@ Acceptance criteria:
 - <criterion>
 ```
 
-The workflow runner will delegate to the Architect, Developer, Tester, Reviewer, and Controller subagents using compact task packets.
+The workflow runner will delegate to the Architect, Developer, Tester,
+Reviewer, and Controller subagents using compact task packets.
 
 ## Agent Roles
 
@@ -395,11 +397,25 @@ def _install_copilot_vscode(target_root: Path, force: bool, global_mode: bool = 
         installed.append(_copy_file(rel_path, target_root, force))
 
     installed.append(_copy_file(Path(".github/skills/README.md"), target_root, force))
-    installed.append(_write_text(target_root / "COPILOT_VSCODE_MULTI_AGENT_QUICKSTART.md", _copilot_quickstart(), force))
+    installed.append(
+        _write_text(
+            target_root / "COPILOT_VSCODE_MULTI_AGENT_QUICKSTART.md",
+            _copilot_quickstart(),
+            force,
+        )
+    )
     return installed
 
 
-def _install_plain_markdown_platform(target_root: Path, force: bool, platform_id: str, platform_dir_name: str, quickstart_name: str, quickstart_text: str, global_mode: bool = False) -> list[Path]:
+def _install_plain_markdown_platform(
+    target_root: Path,
+    force: bool,
+    platform_id: str,
+    platform_dir_name: str,
+    quickstart_name: str,
+    quickstart_text: str,
+    global_mode: bool = False,
+) -> list[Path]:
     agents = _load_agents()
     skills = _load_skills()
     installed: list[Path] = []
@@ -409,10 +425,14 @@ def _install_plain_markdown_platform(target_root: Path, force: bool, platform_id
 
     for asset in agents:
         file_name = "workflow-runner.md" if asset.slug == "copilot-workflow-runner" else f"{asset.slug}.md"
-        installed.append(_write_text(agent_dir / file_name, _plain_markdown_agent_text(asset, platform_id), force))
+        installed.append(
+            _write_text(agent_dir / file_name, _plain_markdown_agent_text(asset, platform_id), force)
+        )
 
     for asset in skills:
-        installed.append(_write_text(skill_dir / asset.slug / "SKILL.md", _plain_markdown_skill_text(asset, platform_id), force))
+        installed.append(
+            _write_text(skill_dir / asset.slug / "SKILL.md", _plain_markdown_skill_text(asset, platform_id), force)
+        )
 
     if not global_mode:
         installed.append(_write_text(target_root / quickstart_name, quickstart_text, force))
@@ -432,7 +452,9 @@ def _install_glm(target_root: Path, force: bool, global_mode: bool = False) -> l
         installed.append(_write_text(agent_dir / file_name, _glm_agent_json(asset), force))
 
     for asset in skills:
-        installed.append(_write_text(skill_dir / asset.slug / "SKILL.md", _plain_markdown_skill_text(asset, "glm"), force))
+        installed.append(
+            _write_text(skill_dir / asset.slug / "SKILL.md", _plain_markdown_skill_text(asset, "glm"), force)
+        )
 
     if not global_mode:
         installed.append(_write_text(target_root / "GLM_MULTI_AGENT_QUICKSTART.md", _glm_quickstart(), force))
@@ -459,7 +481,13 @@ def _install_opencode(target_root: Path, force: bool, global_mode: bool = False)
     return installed
 
 
-def install_platforms(target_root: Path, platforms: Iterable[str], force: bool = False, *, global_mode: bool = False) -> list[Path]:
+def install_platforms(
+    target_root: Path,
+    platforms: Iterable[str],
+    force: bool = False,
+    *,
+    global_mode: bool = False,
+) -> list[Path]:
     requested = list(platforms)
     if not requested:
         raise ValueError("At least one platform must be requested")
