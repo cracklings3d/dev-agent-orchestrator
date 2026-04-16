@@ -351,6 +351,18 @@ class TestModelAssignment:
         assignment = ModelAssignment.from_profile(p)
         assert assignment.api_key == ""
 
+    def test_repr_masks_api_key(self, monkeypatch):
+        monkeypatch.setenv("TEST_KEY_GLM51", "sk-secret-do-not-leak")
+        assignment = ModelAssignment.from_profile(GLM_51)
+        r = repr(assignment)
+        assert "sk-secret-do-not-leak" not in r
+        assert "***" in r
+        assert "glm-5.1" in r
+
+    def test_repr_empty_key_shows_blank(self):
+        assignment = ModelAssignment(model="m", provider="x", api_key="")
+        assert repr(assignment) == "ModelAssignment(model='m', provider='x', api_key='')"
+
 
 class TestModelSelectorFromConfig:
     def test_loads_from_project_config(self):

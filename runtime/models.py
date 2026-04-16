@@ -220,6 +220,10 @@ class ModelAssignment:
     provider: str = ""
     api_key: str = ""
 
+    def __repr__(self) -> str:
+        masked = "***" if self.api_key else ""
+        return f"ModelAssignment(model={self.model!r}, provider={self.provider!r}, api_key={masked!r})"
+
     @classmethod
     def from_profile(cls, profile: ModelProfile) -> ModelAssignment:
         return cls(model=profile.name, provider=profile.provider, api_key=profile.get_api_key())
