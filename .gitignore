@@ -28,6 +28,12 @@ Thumbs.db
 # Orchestrator temp
 .orchestrator/temp/
 
+# Ruff
+.ruff_cache/
+
+# Pyright
+pyrightconfig.json
+
 # Qwen internal
 .qwen/
 skills/
