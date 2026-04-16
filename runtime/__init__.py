@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """Bounded-context multi-agent runtime.
 
 Provides the minimal execution mechanism needed to drive the
